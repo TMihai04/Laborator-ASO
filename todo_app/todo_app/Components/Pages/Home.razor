@@ -1,0 +1,143 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using todo_app.Data
+@using todo_app.Models
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext Db
+
+<PageTitle>My Tasks</PageTitle>
+
+<div class="app-container">
+    <div class="header">
+        <h2>My Tasks</h2>
+        <button class="btn-primary" @onclick="OpenModal">Create New</button>
+    </div>
+
+    <div class="board">
+        <!-- To-Do Column -->
+        <div class="column">
+            <h3>To-Do</h3>
+            @foreach (var item in Todos.Where(t => !t.IsCompleted))
+            {
+                <div class="card">
+                    <span>@item.Title</span>
+                    <div class="card-actions">
+                        <button class="btn-success" @onclick="() => MarkComplete(item)">✓</button>
+                        <button class="btn-danger" @onclick="() => DeleteTask(item)">✕</button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Completed Column -->
+        <div class="column">
+            <h3>Completed</h3>
+            @foreach (var item in Todos.Where(t => t.IsCompleted))
+            {
+                <div class="card completed-card">
+                    <span class="strikethrough">@item.Title</span>
+                    <div class="card-actions">
+                        <button class="btn-danger" @onclick="() => DeleteTask(item)">✕</button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal Pop-up -->
+@if (IsModalOpen)
+{
+    <div class="modal-overlay">
+        <div class="modal-content">
+            <h3>New Task</h3>
+            <input type="text" @bind="NewTaskTitle" placeholder="What needs to be done?" class="task-input" />
+            <div class="modal-actions">
+                <button class="btn-secondary" @onclick="CloseModal">Cancel</button>
+                <button class="btn-primary" @onclick="SaveTask">Done</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<TodoItem> Todos = new();
+    private bool IsModalOpen = false;
+    private string NewTaskTitle = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasks();
+    }
+
+    private async Task LoadTasks()
+    {
+        Todos = await Db.TodoItems.ToListAsync();
+    }
+
+    private void OpenModal() => IsModalOpen = true;
+
+    private void CloseModal()
+    {
+        IsModalOpen = false;
+        NewTaskTitle = string.Empty;
+    }
+
+    private async Task SaveTask()
+    {
+        if (!string.IsNullOrWhiteSpace(NewTaskTitle))
+        {
+            var newTask = new TodoItem { Title = NewTaskTitle, IsCompleted = false };
+            Db.TodoItems.Add(newTask);
+            await Db.SaveChangesAsync();
+            await LoadTasks();
+            CloseModal();
+        }
+    }
+
+    private async Task MarkComplete(TodoItem item)
+    {
+        item.IsCompleted = true;
+        Db.TodoItems.Update(item);
+        await Db.SaveChangesAsync();
+        await LoadTasks();
+    }
+
+    private async Task DeleteTask(TodoItem item)
+    {
+        Db.TodoItems.Remove(item);
+        await Db.SaveChangesAsync();
+        await LoadTasks();
+    }
+}
+
+<style>
+    /* Minimalist Styling */
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; }
+    .app-container { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .board { display: flex; gap: 2rem; }
+    .column { flex: 1; background: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    h3 { margin-top: 0; color: #555; font-weight: 600; }
+
+    /* Cards */
+    .card { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: #fdfdfd; border: 1px solid #eaeaea; border-radius: 8px; margin-bottom: 1rem; transition: transform 0.2s; }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .completed-card { opacity: 0.6; background: #f9f9f9; }
+    .strikethrough { text-decoration: line-through; }
+
+    /* Buttons */
+    button { border: none; border-radius: 6px; padding: 0.5rem 1rem; cursor: pointer; font-weight: 500; transition: opacity 0.2s; }
+    button:hover { opacity: 0.8; }
+    .btn-primary { background: #4f46e5; color: white; }
+    .btn-secondary { background: #e5e7eb; color: #374151; }
+    .btn-success { background: #10b981; color: white; padding: 0.5rem 0.7rem; }
+    .btn-danger { background: #ef4444; color: white; padding: 0.5rem 0.7rem; }
+    .card-actions { display: flex; gap: 0.5rem; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; padding: 2rem; border-radius: 12px; width: 400px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+    .task-input { width: 100%; padding: 0.75rem; margin: 1rem 0; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; box-sizing: border-box;}
+    .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem; }
+</style>
